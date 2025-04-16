@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Token Bucket - Test Interface</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .container {
+      max-width: 800px;
+      margin-top: 30px;
+    }
+    .response-area {
+      min-height: 200px;
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 5px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+    }
+    .card {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="mb-4">API Token Bucket - Test Interface</h1>
+    
+    <div class="card">
+      <div class="card-header">
+        <h5>Authentication</h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <button id="registerBtn" class="btn btn-primary">Register</button>
+        </div>
+        <div class="mb-3">
+          <label for="tokenInput" class="form-label">Your Token:</label>
+          <input type="text" class="form-control" id="tokenInput" placeholder="Enter your token here">
+        </div>
+        <div class="mb-3">
+          <label for="rechargeAmount" class="form-label">Recharge Amount:</label>
+          <input type="number" class="form-control" id="rechargeAmount" value="100">
+          <button id="rechargeBtn" class="btn btn-success mt-2">Recharge</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h5>Items Management</h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <button id="getItemsBtn" class="btn btn-info">Get Items</button>
+        </div>
+        
+        <div class="mb-3">
+          <h6>Add Item</h6>
+          <div class="row g-3">
+            <div class="col-md-5">
+              <input type="text" class="form-control" id="itemName" placeholder="Item Name">
+            </div>
+            <div class="col-md-5">
+              <input type="text" class="form-control" id="itemDescription" placeholder="Item Description">
+            </div>
+            <div class="col-md-2">
+              <button id="addItemBtn" class="btn btn-primary w-100">Add</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <h6>Update Item</h6>
+          <div class="row g-3">
+            <div class="col-md-2">
+              <input type="number" class="form-control" id="updateItemId" placeholder="ID">
+            </div>
+            <div class="col-md-4">
+              <input type="text" class="form-control" id="updateItemName" placeholder="New Name">
+            </div>
+            <div class="col-md-4">
+              <input type="text" class="form-control" id="updateItemDescription" placeholder="New Description">
+            </div>
+            <div class="col-md-2">
+              <button id="updateItemBtn" class="btn btn-warning w-100">Update</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <h6>Delete Item</h6>
+          <div class="row g-3">
+            <div class="col-md-10">
+              <input type="number" class="form-control" id="deleteItemId" placeholder="Item ID to Delete">
+            </div>
+            <div class="col-md-2">
+              <button id="deleteItemBtn" class="btn btn-danger w-100">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h5>Response</h5>
+      </div>
+      <div class="card-body">
+        <div id="responseArea" class="response-area">Response will appear here...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const responseArea = document.getElementById('responseArea');
+      const tokenInput = document.getElementById('tokenInput');
+      
+      // Helper function to display response
+      function displayResponse(data) {
+        if (typeof data === 'object') {
+          responseArea.textContent = JSON.stringify(data, null, 2);
+        } else {
+          responseArea.textContent = data;
+        }
+      }
+      
+      // Helper function for API calls
+      async function callApi(endpoint, method = 'GET', body = null) {
+        const headers = {
+          'Content-Type': 'application/json'
+        };
+        
+        const token = tokenInput.value.trim();
+        if (token && endpoint !== '/register') {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        try {
+          const options = {
+            method,
+            headers
+          };
+          
+          if (body && (method === 'POST' || method === 'PUT')) {
+            options.body = JSON.stringify(body);
+          }
+          
+          const response = await fetch(endpoint, options);
+          let data;
+          
+          if (response.status !== 204) { // No content
+            data = await response.json();
+          } else {
+            data = { message: 'Operation successful (No content returned)' };
+          }
+          
+          if (!response.ok) {
+            throw new Error(data.error || data.message || 'API call failed');
+          }
+          
+          // Update token input if it's a register response
+          if (endpoint === '/register' && data.token) {
+            tokenInput.value = data.token;
+          }
+          
+          return data;
+        } catch (error) {
+          throw error;
+        }
+      }
+      
+      // Register
+      document.getElementById('registerBtn').addEventListener('click', async () => {
+        try {
+          const data = await callApi('/register', 'POST');
+          displayResponse(data);
+        } catch (error) {
+          displayResponse(`Error: ${error.message}`);
+        }
+      });
+      
+      // Recharge
+      document.getElementById('rechargeBtn').addEventListener('click', async () => {
+        try {
+          const amount = parseInt(document.getElementById('rechargeAmount').value);
+          const data = await callApi('/recharge', 'POST', { amount });
+          displayResponse(data);
+        } catch (error) {
+          displayResponse(`Error: ${error.message}`);
+        }
+      });
+      
+      // Get Items
+      document.getElementById('getItemsBtn').addEventListener('click', async () => {
+        try {
+          const data = await callApi('/items');
+          displayResponse(data);
+        } catch (error) {
+          displayResponse(`Error: ${error.message}`);
+        }
+      });
+      
+      // Add Item
+      document.getElementById('addItemBtn').addEventListener('click', async () => {
+        try {
+          const name = document.getElementById('itemName').value;
+          const description = document.getElementById('itemDescription').value;
+          
+          if (!name || !description) {
+            throw new Error('Name and description are required');
+          }
+          
+          const data = await callApi('/items', 'POST', { name, description });
+          displayResponse(data);
+        } catch (error) {
+          displayResponse(`Error: ${error.message}`);
+        }
+      });
+      
+      // Update Item
+      document.getElementById('updateItemBtn').addEventListener('click', async () => {
+        try {
+          const id = document.getElementById('updateItemId').value;
+          const name = document.getElementById('updateItemName').value;
+          const description = document.getElementById('updateItemDescription').value;
+          
+          if (!id) {
+            throw new Error('Item ID is required');
+          }
+          
+          const updateData = {};
+          if (name) updateData.name = name;
+          if (description) updateData.description = description;
+          
+          if (Object.keys(updateData).length === 0) {
+            throw new Error('At least one field (name or description) must be provided');
+          }
+          
+          const data = await callApi(`/items/${id}`, 'PUT', updateData);
+          displayResponse(data);
+        } catch (error) {
+          displayResponse(`Error: ${error.message}`);
+        }
+      });
+      
+      // Delete Item
+      document.getElementById('deleteItemBtn').addEventListener('click', async () => {
+        try {
+          const id = document.getElementById('deleteItemId').value;
+          
+          if (!id) {
+            throw new Error('Item ID is required');
+          }
+          
+          const data = await callApi(`/items/${id}`, 'DELETE');
+          displayResponse(data);
+        } catch (error) {
+          displayResponse(`Error: ${error.message}`);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
