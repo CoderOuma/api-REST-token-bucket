@@ -109,6 +109,31 @@ const rateLimiter = (req, res, next) => {
   }
 };
 
+// Étape 5: Rechargement du quota de requêtes
+app.post("/recharge", authenticate, (req, res) => {
+  try {
+    const user = req.user;
+
+    console.log("Recharge request body:", req.body);
+
+    let new_quantity = Number.parseInt(req.body?.amount) || 100;
+
+    new_quantity = Math.max(0, new_quantity);
+    user.requestsNumber += new_quantity;
+    user.last_recharge = new Date();
+
+    res.status(200).json({
+      message: `Requests number recharged with ${new_quantity} requests`,
+      newRequestsNumber: user.requestsNumber,
+      last_recharge: user.last_recharge,
+      requestsNumberRemaining: user.requestsNumber,
+    });
+  } catch (error) {
+    console.error("Recharge error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Route protégée pour tester l'authentification et la limitation
 app.get("/protected", authenticate, rateLimiter, (req, res) => {
   res.status(200).json({ message: "You are authenticated!", user: req.user.userId });
