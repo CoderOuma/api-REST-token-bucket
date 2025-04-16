@@ -74,8 +74,43 @@ const authenticate = (req, res, next) => {
   }
 };
 
-// Route protégée pour tester l'authentification
-app.get("/protected", authenticate, (req, res) => {
+// Étape 4: Mise en œuvre du modèle "Token Bucket"
+const rateLimiter = (req, res, next) => {
+  try {
+    const user = req.user;
+
+    if (user.requestsNumber <= 0) {
+      return res.status(429).json({
+        error: "Too many requests",
+        message: "Your request max number has been exhausted.",
+        requestsNumber: user.requestsNumber,
+      });
+    }
+
+    const originalRequestsNumber = user.requestsNumber;
+
+    const the_json = res.json.bind(res);
+    res.json = (data) => {
+      user.requestsNumber = Math.max(0, user.requestsNumber - 1);
+      const newData = {
+        ...data,
+        requestsNumberRemaining: user.requestsNumber,
+      };
+      console.log(
+        `[RequestsNumber] User ${user.userId} - ${req.method} ${req.path} - From ${originalRequestsNumber} to ${user.requestsNumber}`
+      );
+      return the_json(newData);
+    };
+
+    next();
+  } catch (error) {
+    console.error("Rate limiting error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Route protégée pour tester l'authentification et la limitation
+app.get("/protected", authenticate, rateLimiter, (req, res) => {
   res.status(200).json({ message: "You are authenticated!", user: req.user.userId });
 });
 
