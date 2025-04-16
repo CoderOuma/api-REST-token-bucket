@@ -9,7 +9,14 @@ const PORT = process.env.PORT || 7000;
 const users = {};
 const ip_register = {};
 
+// Stockage des items
+let items = [
+  { id: 1, name: "Item 1", description: "First item" },
+  { id: 2, name: "Item 2", description: "Second item" },
+];
+
 app.use(express.json());
+app.use(express.static("public"));
 
 // Route de test
 app.get("/ping", (req, res) => {
@@ -134,9 +141,68 @@ app.post("/recharge", authenticate, (req, res) => {
   }
 });
 
-// Route protégée pour tester l'authentification et la limitation
-app.get("/protected", authenticate, rateLimiter, (req, res) => {
-  res.status(200).json({ message: "You are authenticated!", user: req.user.userId });
+// Étape 6: Manipulation de données protégées (CRUD pour items)
+// GET /items - Récupérer tous les items
+app.get("/items", authenticate, rateLimiter, (req, res) => {
+  try {
+    res.status(200).json(items);
+  } catch (error) {
+    console.error("Get items error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /items - Ajouter un item
+app.post("/items", authenticate, rateLimiter, (req, res) => {
+  try {
+    const new_item = {
+      id: items.length + 1,
+      name: req.body.name,
+      description: req.body.description,
+    };
+
+    items.push(new_item);
+    res.status(201).json(new_item);
+  } catch (error) {
+    console.error("Add item error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// PUT /items/:id - Modifier un item
+app.put("/items/:id", authenticate, rateLimiter, (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id);
+    const index = items.findIndex((item) => item.id === id);
+
+    if (index === -1) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    items[index] = { ...items[index], ...req.body };
+    res.status(200).json(items[index]);
+  } catch (error) {
+    console.error("Update item error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// DELETE /items/:id - Supprimer un item
+app.delete("/items/:id", authenticate, rateLimiter, (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id);
+    const length = items.length;
+    items = items.filter((item) => item.id !== id);
+
+    if (items.length === length) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    res.status(204).end();
+  } catch (error) {
+    console.error("Delete item error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 app.listen(PORT, () => {
