@@ -1,4 +1,4 @@
-
+// Étape 1: Initialisation du projet
 require("dotenv").config();
 const express = require("express");
 const { v4: uuidv4 } = require("uuid");
@@ -16,7 +16,7 @@ app.get("/ping", (req, res) => {
   res.status(200).json({ message: "pong" });
 });
 
-
+// Étape 2: Système d'enregistrement et de génération de tokens
 app.post("/register", (req, res) => {
   try {
     const client_ip = req.ip || req.connection.remoteAddress;
@@ -54,6 +54,29 @@ app.post("/register", (req, res) => {
     console.error("Registration error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+// Étape 3: Middleware d'authentification
+const authenticate = (req, res, next) => {
+  try {
+    const theHeader = req.headers["authorization"];
+    const token = theHeader && theHeader.split(" ")[1];
+
+    if (!token || !users[token]) {
+      return res.status(401).json({ error: "Invalid or missing token" });
+    }
+
+    req.user = users[token];
+    next();
+  } catch (error) {
+    console.error("Authentication error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Route protégée pour tester l'authentification
+app.get("/protected", authenticate, (req, res) => {
+  res.status(200).json({ message: "You are authenticated!", user: req.user.userId });
 });
 
 app.listen(PORT, () => {
