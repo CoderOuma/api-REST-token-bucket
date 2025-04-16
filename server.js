@@ -1,4 +1,4 @@
-
+// Étape 1: Initialisation du projet
 require("dotenv").config();
 const express = require("express");
 const { v4: uuidv4 } = require("uuid");
@@ -16,7 +16,7 @@ app.get("/ping", (req, res) => {
   res.status(200).json({ message: "pong" });
 });
 
-
+// Étape 2: Système d'enregistrement et de génération de tokens
 app.post("/register", (req, res) => {
   try {
     const client_ip = req.ip || req.connection.remoteAddress;
@@ -54,6 +54,64 @@ app.post("/register", (req, res) => {
     console.error("Registration error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+// Étape 3: Middleware d'authentification
+const authenticate = (req, res, next) => {
+  try {
+    const theHeader = req.headers["authorization"];
+    const token = theHeader && theHeader.split(" ")[1];
+
+    if (!token || !users[token]) {
+      return res.status(401).json({ error: "Invalid or missing token" });
+    }
+
+    req.user = users[token];
+    next();
+  } catch (error) {
+    console.error("Authentication error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Étape 4: Mise en œuvre du modèle "Token Bucket"
+const rateLimiter = (req, res, next) => {
+  try {
+    const user = req.user;
+
+    if (user.requestsNumber <= 0) {
+      return res.status(429).json({
+        error: "Too many requests",
+        message: "Your request max number has been exhausted.",
+        requestsNumber: user.requestsNumber,
+      });
+    }
+
+    const originalRequestsNumber = user.requestsNumber;
+
+    const the_json = res.json.bind(res);
+    res.json = (data) => {
+      user.requestsNumber = Math.max(0, user.requestsNumber - 1);
+      const newData = {
+        ...data,
+        requestsNumberRemaining: user.requestsNumber,
+      };
+      console.log(
+        `[RequestsNumber] User ${user.userId} - ${req.method} ${req.path} - From ${originalRequestsNumber} to ${user.requestsNumber}`
+      );
+      return the_json(newData);
+    };
+
+    next();
+  } catch (error) {
+    console.error("Rate limiting error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Route protégée pour tester l'authentification et la limitation
+app.get("/protected", authenticate, rateLimiter, (req, res) => {
+  res.status(200).json({ message: "You are authenticated!", user: req.user.userId });
 });
 
 app.listen(PORT, () => {
